@@ -73,9 +73,7 @@ async def list_bookings_endpoint(
     offset: int = Query(default=0, ge=0),
     session: AsyncSession = Depends(get_session),
 ) -> BookingList:
-    items, total = await list_bookings(
-        session, status=status_filter, limit=limit, offset=offset
-    )
+    items, total = await list_bookings(session, status=status_filter, limit=limit, offset=offset)
     return BookingList(
         items=[BookingRead.model_validate(b) for b in items],
         total=total,

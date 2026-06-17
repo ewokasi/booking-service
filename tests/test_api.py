@@ -55,9 +55,7 @@ async def test_list_filters_and_paginates(client: AsyncClient) -> None:
     assert body["offset"] == 0
     assert all(item["status"] == "confirmed" for item in body["items"])
 
-    page2 = await client.get(
-        "/bookings", params={"status": "confirmed", "limit": 2, "offset": 2}
-    )
+    page2 = await client.get("/bookings", params={"status": "confirmed", "limit": 2, "offset": 2})
     assert page2.status_code == 200
     assert len(page2.json()["items"]) == 2
 
@@ -69,9 +67,7 @@ async def test_list_filters_and_paginates(client: AsyncClient) -> None:
 async def test_delete_pending_succeeds(client: AsyncClient, monkeypatch) -> None:
     from app.worker import tasks as worker_tasks
 
-    monkeypatch.setattr(
-        worker_tasks.confirm_booking, "apply_async", lambda *a, **kw: None
-    )
+    monkeypatch.setattr(worker_tasks.confirm_booking, "apply_async", lambda *a, **kw: None)
     monkeypatch.setattr(worker_tasks.confirm_booking, "delay", lambda *a, **kw: None)
 
     create = await client.post("/bookings", json=_payload())
@@ -101,6 +97,7 @@ async def test_delete_unknown_returns_404(client: AsyncClient) -> None:
 async def test_rate_limit_post(client: AsyncClient, monkeypatch) -> None:
     monkeypatch.setenv("RATE_LIMIT_CREATE_BOOKING", "2/minute")
     from app.config import get_settings as gs
+
     gs.cache_clear()
 
     from httpx import ASGITransport

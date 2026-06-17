@@ -71,9 +71,7 @@ async def cancel_booking(session: AsyncSession, booking_id: uuid.UUID) -> None:
         await session.commit()
         return
 
-    current = await session.execute(
-        select(Booking.status).where(Booking.id == booking_id)
-    )
+    current = await session.execute(select(Booking.status).where(Booking.id == booking_id))
     status = current.scalar_one_or_none()
     if status is None:
         raise BookingNotFoundError(str(booking_id))

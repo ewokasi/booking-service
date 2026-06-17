@@ -34,9 +34,7 @@ def _get_status(sync_engine, booking_id: uuid.UUID) -> BookingStatus:
         return session.get(Booking, booking_id).status  # type: ignore[union-attr]
 
 
-def test_worker_confirms_when_no_failure(
-    sync_engine, make_booking, monkeypatch
-) -> None:
+def test_worker_confirms_when_no_failure(sync_engine, make_booking, monkeypatch) -> None:
     monkeypatch.setattr(worker_tasks, "_roll_failure", lambda rate: False)
     sent: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
@@ -62,17 +60,13 @@ def test_worker_marks_failed_after_retries_exhausted(
     from app.config import get_settings
 
     max_retries = get_settings().worker_max_retries
-    result = worker_tasks.confirm_booking.apply(
-        args=[str(booking_id)], retries=max_retries
-    ).get()
+    result = worker_tasks.confirm_booking.apply(args=[str(booking_id)], retries=max_retries).get()
 
     assert result == "failed"
     assert _get_status(sync_engine, booking_id) == BookingStatus.failed
 
 
-def test_worker_retries_on_failure_with_backoff(
-    sync_engine, make_booking, monkeypatch
-) -> None:
+def test_worker_retries_on_failure_with_backoff(sync_engine, make_booking, monkeypatch) -> None:
     from celery.exceptions import Retry
 
     monkeypatch.setattr(worker_tasks, "_roll_failure", lambda rate: True)
@@ -84,9 +78,7 @@ def test_worker_retries_on_failure_with_backoff(
     assert _get_status(sync_engine, booking_id) == BookingStatus.pending
 
 
-def test_worker_idempotent_on_already_confirmed(
-    sync_engine, make_booking, monkeypatch
-) -> None:
+def test_worker_idempotent_on_already_confirmed(sync_engine, make_booking, monkeypatch) -> None:
     monkeypatch.setattr(worker_tasks, "_roll_failure", lambda rate: False)
     monkeypatch.setattr(worker_tasks, "send_notification", lambda *a, **kw: None)
 

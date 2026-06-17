@@ -62,7 +62,7 @@ def confirm_booking(self: Task, booking_id: str) -> str:
             return BookingStatus.failed.value
 
         session.rollback()
-        countdown = settings.worker_retry_backoff ** self.request.retries
+        countdown = settings.worker_retry_backoff**self.request.retries
         log.warning(
             "confirm_retry",
             booking_id=booking_id,

@@ -1,5 +1,7 @@
 # Booking Service
 
+[![CI](https://github.com/ewokasi/booking-service/actions/workflows/ci.yml/badge.svg)](https://github.com/ewokasi/booking-service/actions/workflows/ci.yml)
+
 Асинхронный backend для записи на встречи: REST API плюс фоновый воркер, который подтверждает брони асинхронно с retry и mock-уведомлениями.
 
 **Стек:** FastAPI, SQLAlchemy 2 (async) + Alembic, Celery, Redis, PostgreSQL, structlog, slowapi.
