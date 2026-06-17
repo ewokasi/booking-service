@@ -1,5 +1,6 @@
 import uuid
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,10 +23,10 @@ router = APIRouter(prefix="/bookings", tags=["bookings"])
 log = get_logger(__name__)
 
 
-def _enqueue_confirm(booking_id: uuid.UUID) -> None:
+async def _enqueue_confirm(booking_id: uuid.UUID) -> None:
     from app.worker.tasks import confirm_booking
 
-    confirm_booking.delay(str(booking_id))
+    await anyio.to_thread.run_sync(confirm_booking.delay, str(booking_id))
 
 
 def _create_rate_limit(*_args: object, **_kwargs: object) -> str:
@@ -49,7 +50,7 @@ async def create_booking_endpoint(
         when=payload.datetime,
         service_type=payload.service_type,
     )
-    _enqueue_confirm(booking.id)
+    await _enqueue_confirm(booking.id)
     log.info("booking_created", booking_id=str(booking.id), service_type=booking.service_type)
     return BookingRead.model_validate(booking)
 

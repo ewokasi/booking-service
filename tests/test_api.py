@@ -19,6 +19,55 @@ async def test_healthz(client: AsyncClient) -> None:
     assert resp.json() == {"status": "ok"}
 
 
+class _FakeRedis:
+    def __init__(self, ping_ok: bool = True) -> None:
+        self._ok = ping_ok
+
+    async def ping(self) -> bool:
+        if not self._ok:
+            raise ConnectionError("redis down")
+        return True
+
+    async def aclose(self) -> None:
+        return None
+
+
+def _install_fake_redis(client: AsyncClient, ping_ok: bool) -> None:
+    app = client._transport.app  # type: ignore[attr-defined]
+    app.state.redis = _FakeRedis(ping_ok=ping_ok)
+
+
+async def test_readyz_ok_when_dependencies_healthy(client: AsyncClient) -> None:
+    _install_fake_redis(client, ping_ok=True)
+
+    resp = await client.get("/readyz")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body == {"status": "ok", "checks": {"postgres": "ok", "redis": "ok"}}
+
+
+async def test_readyz_503_when_redis_down(client: AsyncClient) -> None:
+    _install_fake_redis(client, ping_ok=False)
+
+    resp = await client.get("/readyz")
+    assert resp.status_code == 503
+    body = resp.json()
+    assert body["status"] == "degraded"
+    assert body["checks"]["postgres"] == "ok"
+    assert body["checks"]["redis"].startswith("error:")
+
+
+async def test_readyz_503_when_redis_not_initialized(client: AsyncClient) -> None:
+    app = client._transport.app  # type: ignore[attr-defined]
+    if hasattr(app.state, "redis"):
+        del app.state.redis
+
+    resp = await client.get("/readyz")
+    assert resp.status_code == 503
+    body = resp.json()
+    assert body["checks"]["redis"] == "error: NotInitialized"
+
+
 async def test_create_returns_202_and_confirms_via_eager_worker(
     client: AsyncClient,
 ) -> None:
@@ -39,6 +88,34 @@ async def test_get_unknown_returns_404(client: AsyncClient) -> None:
 async def test_create_validation_error(client: AsyncClient) -> None:
     resp = await client.post("/bookings", json={"name": "", "service_type": "x"})
     assert resp.status_code == 422
+
+
+async def test_create_rejects_past_datetime(client: AsyncClient) -> None:
+    past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    resp = await client.post(
+        "/bookings",
+        json={"name": "Alice", "datetime": past, "service_type": "haircut"},
+    )
+    assert resp.status_code == 422
+    assert "future" in resp.text
+
+
+async def test_create_rejects_now(client: AsyncClient) -> None:
+    now = datetime.now(UTC).isoformat()
+    resp = await client.post(
+        "/bookings",
+        json={"name": "Alice", "datetime": now, "service_type": "haircut"},
+    )
+    assert resp.status_code == 422
+
+
+async def test_create_accepts_naive_datetime_as_utc(client: AsyncClient) -> None:
+    future_naive = (datetime.now(UTC) + timedelta(hours=1)).replace(tzinfo=None).isoformat()
+    resp = await client.post(
+        "/bookings",
+        json={"name": "Alice", "datetime": future_naive, "service_type": "haircut"},
+    )
+    assert resp.status_code == 202
 
 
 async def test_list_filters_and_paginates(client: AsyncClient) -> None:
@@ -94,25 +171,20 @@ async def test_delete_unknown_returns_404(client: AsyncClient) -> None:
     assert resp.status_code == 404
 
 
-async def test_rate_limit_post(client: AsyncClient, monkeypatch) -> None:
-    monkeypatch.setenv("RATE_LIMIT_CREATE_BOOKING", "2/minute")
-    from app.config import get_settings as gs
-
-    gs.cache_clear()
-
+async def test_rate_limit_post(monkeypatch) -> None:
     from httpx import ASGITransport
     from httpx import AsyncClient as Client
 
+    from app.config import get_settings
     from app.main import create_app
 
-    app = create_app()
-    async with Client(transport=ASGITransport(app=app), base_url="http://rl") as c:
-        codes = []
-        for _ in range(4):
-            r = await c.post("/bookings", json=_payload())
-            codes.append(r.status_code)
-    assert codes[0] == 202
-    assert codes.count(429) >= 1
-
-    monkeypatch.setenv("RATE_LIMIT_CREATE_BOOKING", "10000/minute")
-    gs.cache_clear()
+    monkeypatch.setenv("RATE_LIMIT_CREATE_BOOKING", "2/minute")
+    get_settings.cache_clear()
+    try:
+        app = create_app()
+        async with Client(transport=ASGITransport(app=app), base_url="http://rl") as c:
+            codes = [(await c.post("/bookings", json=_payload())).status_code for _ in range(4)]
+        assert codes[0] == 202
+        assert codes.count(429) >= 1
+    finally:
+        get_settings.cache_clear()

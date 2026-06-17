@@ -20,6 +20,10 @@ celery_app.conf.update(
     task_default_queue="bookings",
     timezone="UTC",
     enable_utc=True,
+    task_soft_time_limit=30,
+    task_time_limit=60,
+    task_ignore_result=True,
+    worker_max_tasks_per_child=1000,
     task_always_eager=settings.celery_task_always_eager,
     task_eager_propagates=settings.celery_task_always_eager,
 )
