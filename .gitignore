@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+wheels/
+share/python-wheels/
+.Python
+
+# Virtual env
+.venv/
+venv/
+env/
+ENV/
+
+# Env files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.cache/
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.dmypy.json
+dmypy.json
+
+# Local DB / data
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+data/
+pg_data/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Alembic local
+alembic/versions/__pycache__/
+
+# Direnv / pyenv
+.direnv/
+.python-version
